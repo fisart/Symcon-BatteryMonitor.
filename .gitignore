@@ -1,0 +1,5 @@
+settings*.json
+settings*.zip
+node_modules/
+.tests/*report*.json
+*.log

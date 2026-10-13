@@ -1,0 +1,237 @@
+{
+  "elements": [
+    {
+      "type": "NumberSpinner",
+      "name": "DefaultThreshold",
+      "caption": "Default charge threshold (%)",
+      "minimum": 0,
+      "maximum": 100,
+      "digits": 1
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "StaleDays",
+      "caption": "Mark readings older than (days)",
+      "minimum": 1,
+      "maximum": 3650
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "RefreshMinutes",
+      "caption": "Automatic search every (minutes; 0 = manual)",
+      "minimum": 0,
+      "maximum": 1440
+    },
+    {
+      "type": "CheckBox",
+      "name": "DebugEnabled",
+      "caption": "Detailed debug messages"
+    },
+    {
+      "type": "CheckBox",
+      "name": "WebEnabled",
+      "caption": "Enable passkey-protected HTML page"
+    },
+    {
+      "type": "SelectInstance",
+      "name": "VaultInstanceID",
+      "caption": "SecretsManager (0 = automatic if exactly one eligible vault)",
+      "validModules": [
+        "{7C5A3841-3F7B-4D2A-9E1C-5B6D8F9A0E12}"
+      ]
+    },
+    {
+      "type": "SelectInstance",
+      "name": "PortalInstanceID",
+      "caption": "AlarmPortal for back link (optional)"
+    },
+    {
+      "type": "Label",
+      "caption": "Percentage filter is strict: charge < threshold. LOWBAT and voltage appear separately. Old readings are marked; never-updated readings are not treated as measured charge."
+    },
+    {
+      "type": "List",
+      "name": "Overrides",
+      "caption": "Confirmed percentage variables without metadata / exclusions",
+      "rowCount": 6,
+      "add": true,
+      "delete": true,
+      "columns": [
+        {
+          "caption": "Variable",
+          "name": "VariableID",
+          "width": "300px",
+          "add": 0,
+          "edit": {
+            "type": "SelectVariable"
+          }
+        },
+        {
+          "caption": "Interpretation",
+          "name": "Mode",
+          "width": "auto",
+          "add": "percent100",
+          "edit": {
+            "type": "Select",
+            "options": [
+              {
+                "caption": "Percentage 0\u2013100",
+                "value": "percent100"
+              },
+              {
+                "caption": "Fraction 0\u20131",
+                "value": "percent1"
+              },
+              {
+                "caption": "Low battery Boolean",
+                "value": "low"
+              },
+              {
+                "caption": "Voltage",
+                "value": "voltage"
+              },
+              {
+                "caption": "Ignore",
+                "value": "ignore"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Button",
+      "caption": "Search all battery variables",
+      "onClick": "BATMON_Scan($id);"
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "LiveThreshold",
+      "caption": "Show charge strictly below (%)",
+      "minimum": 0,
+      "maximum": 100,
+      "digits": 1,
+      "onChange": "BATMON_SetThreshold($id, $LiveThreshold);"
+    },
+    {
+      "type": "Label",
+      "name": "ScanResult",
+      "caption": "Search reads the existing Symcon values; it does not force a device poll."
+    },
+    {
+      "type": "List",
+      "name": "BatteryRows",
+      "caption": "Percentage readings below threshold",
+      "rowCount": 12,
+      "columns": [
+        {
+          "caption": "ID",
+          "name": "id",
+          "width": "75px"
+        },
+        {
+          "caption": "Device",
+          "name": "device",
+          "width": "210px"
+        },
+        {
+          "caption": "Variable",
+          "name": "name",
+          "width": "160px"
+        },
+        {
+          "caption": "Charge %",
+          "name": "percent",
+          "width": "90px"
+        },
+        {
+          "caption": "Old reading",
+          "name": "stale",
+          "width": "85px"
+        },
+        {
+          "caption": "Last update",
+          "name": "updatedText",
+          "width": "170px"
+        },
+        {
+          "caption": "Path",
+          "name": "path",
+          "width": "auto"
+        }
+      ]
+    },
+    {
+      "type": "List",
+      "name": "OtherRows",
+      "caption": "LOWBAT, voltage, status, unconfirmed and never-updated variables",
+      "rowCount": 10,
+      "columns": [
+        {
+          "caption": "ID",
+          "name": "id",
+          "width": "75px"
+        },
+        {
+          "caption": "Device",
+          "name": "device",
+          "width": "210px"
+        },
+        {
+          "caption": "Variable",
+          "name": "name",
+          "width": "160px"
+        },
+        {
+          "caption": "Type",
+          "name": "kind",
+          "width": "95px"
+        },
+        {
+          "caption": "Value",
+          "name": "value",
+          "width": "80px"
+        },
+        {
+          "caption": "Reason",
+          "name": "reason",
+          "width": "auto"
+        }
+      ]
+    },
+    {
+      "type": "Label",
+      "name": "WebPath",
+      "caption": ""
+    },
+    {
+      "type": "Button",
+      "caption": "Register / check webhook",
+      "onClick": "BATMON_SetupHook($id);"
+    },
+    {
+      "type": "Button",
+      "caption": "Clear debug variable",
+      "onClick": "BATMON_ClearDebug($id);"
+    }
+  ],
+  "status": [
+    {
+      "code": 102,
+      "icon": "active",
+      "caption": "Active"
+    },
+    {
+      "code": 200,
+      "icon": "error",
+      "caption": "Invalid settings"
+    },
+    {
+      "code": 201,
+      "icon": "error",
+      "caption": "Battery search failed"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "{5F50D91E-CB0D-4303-B3D7-01CAAC4EDBE2}",
+  "name": "BatteryMonitor",
+  "type": 3,
+  "vendor": "Fischer",
+  "aliases": [
+    "Battery Monitor"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "BATMON"
+}
