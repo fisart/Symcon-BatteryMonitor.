@@ -84,3 +84,10 @@ PHP 8.3 syntax checks and tests cover percentage classification, Homematic warni
 Personal settings, inventory reports, credentials and snapshot findings are not part of this repository. The `.tests/classify-test.php` script tests discovery classification and filtering without a Symcon installation; run it with `php .tests/classify-test.php`.
 
 Symcon reference: [PHP library structure](https://www.symcon.de/en/service/documentation/developer-area/sdk-tools/sdk-php/structure/).
+
+
+## 1.0.1 — JSON request compatibility
+
+Both PHP's `CONTENT_TYPE` and Symcon's `HTTP_CONTENT_TYPE` are recognized for dashboard POST requests. When the standard key is absent or blank, the Symcon key is used. The body must still be valid JSON, and passkey sessions, Origin checks, CSRF tokens and request size limits remain enforced. This fixes “JSON body required” when applying a filter or starting a search on affected Symcon installations.
+
+Regression checks: `php .tests/webhook-request.php`.

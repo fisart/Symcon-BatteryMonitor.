@@ -163,7 +163,10 @@ trait BatteryMonitorWebhook
             if ($method === 'POST') {
                 if (!$this->webValidPOST($server, $vault)) return $reply(403, ['error'=>'Invalid session-bound security token or origin.']);
                 if (strlen($body) > 16384) return $reply(413, ['error'=>'Request too large.']);
-                if (strtolower(trim(explode(';',(string)($server['CONTENT_TYPE'] ?? ''),2)[0])) !== 'application/json') {
+                // Symcon may use HTTP_CONTENT_TYPE instead of PHP's standard CONTENT_TYPE.
+                $contentType = trim((string)($server['CONTENT_TYPE'] ?? ''));
+                if ($contentType === '') $contentType = (string)($server['HTTP_CONTENT_TYPE'] ?? '');
+                if (strtolower(trim(explode(';',$contentType,2)[0])) !== 'application/json') {
                     return $reply(415, ['error'=>'JSON body required.']);
                 }
                 $data = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
