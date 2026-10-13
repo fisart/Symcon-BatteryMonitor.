@@ -1,0 +1,12 @@
+{
+  "id": "{03F38988-537B-4FC8-A352-BF51E70EB872}",
+  "author": "Artur Fischer",
+  "name": "Battery Monitor",
+  "url": "https://github.com/fisart/Symcon-BatteryMonitor.",
+  "compatibility": {
+    "version": "7.0"
+  },
+  "version": "1.0",
+  "build": 1,
+  "date": 1791885600
+}
