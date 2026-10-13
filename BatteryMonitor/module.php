@@ -165,8 +165,8 @@ class BatteryMonitor extends IPSModule
         $html.='</table>'.(!$rows ? '<p>No recorded percentage readings below the threshold.</p>' : '');
         $this->SetValue('Results',$html);
         $this->UpdateFormField('LiveThreshold','value',$report['threshold']);
-        $this->UpdateFormField('BatteryRows','values',$rows);
-        $this->UpdateFormField('OtherRows','values',array_values(array_filter($report['rows'],static function($r): bool { return $r['kind']!=='percent' || $r['percent']===null || $r['updated']===0; })));
+        $this->UpdateFormField('BatteryRows','values',json_encode($rows,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+        $this->UpdateFormField('OtherRows','values',json_encode(array_values(array_filter($report['rows'],static function($r): bool { return $r['kind']!=='percent' || $r['percent']===null || $r['updated']===0; })),JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
         $this->UpdateFormField('ScanResult','caption',count($report['rows']).' battery-related variables found; '.count($rows).' percentage readings below '.$report['threshold'].'%.');
     }
 
@@ -190,3 +190,4 @@ class BatteryMonitor extends IPSModule
         if ($this->ReadPropertyBoolean('DebugEnabled')) $this->SendDebug('BatteryMonitor',$message,0);
     }
 }
+

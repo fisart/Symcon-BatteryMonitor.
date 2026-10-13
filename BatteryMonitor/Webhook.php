@@ -125,10 +125,44 @@ trait BatteryMonitorWebhook
     {
         $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $body = $method === 'POST' ? (string)file_get_contents('php://input', false, null, 0, 16385) : '';
-        $result = $this->webResponse($_SERVER, $_GET, $body);
+        $result = $this->webDispatch($_SERVER, $_GET, $body);
         http_response_code($result['status']);
         foreach ($result['headers'] as $name=>$value) header($name . ': ' . $value);
         if ($method !== 'HEAD') echo $result['body'];
+    }
+
+
+    /** Keep PHP diagnostics out of the HTTP body; preserve them in the Debug variable. */
+    private function webDispatch(array $server, array $query, string $body): array
+    {
+        $level = ob_get_level();
+        ob_start();
+        set_error_handler(static function(int $severity, string $message, string $file, int $line): bool {
+            if (!(error_reporting() & $severity)) return false;
+            throw new ErrorException($message, 0, $severity, $file, $line);
+        });
+        $error = '';
+        try {
+            $result = $this->webResponse($server, $query, $body);
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+            $result = ['status'=>503, 'headers'=>[
+                'Content-Type'=>'application/json; charset=utf-8',
+                'Cache-Control'=>'private, no-store, max-age=0',
+                'X-Content-Type-Options'=>'nosniff',
+                'Content-Security-Policy'=>"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+            ], 'body'=>json_encode(['error'=>'Battery request failed. Check the module Debug variable.'])];
+        } finally {
+            restore_error_handler();
+        }
+        try {
+            if ($error !== '') $this->logDebug('Web request failed: ' . $error);
+            if (ob_get_length() > 0) $this->logDebug('Unexpected PHP output was withheld from the webhook response.');
+        } catch (Throwable $e) { /* Diagnostics must never break the response. */ }
+        finally {
+            while (ob_get_level() > $level) ob_end_clean();
+        }
+        return $result;
     }
 
     private function webResponse(array $server, array $query, string $body): array
@@ -213,4 +247,5 @@ trait BatteryMonitorWebhook
         }
     }
 }
+
 

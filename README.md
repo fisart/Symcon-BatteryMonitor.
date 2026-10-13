@@ -91,3 +91,10 @@ Symcon reference: [PHP library structure](https://www.symcon.de/en/service/docum
 Both PHP's `CONTENT_TYPE` and Symcon's `HTTP_CONTENT_TYPE` are recognized for dashboard POST requests. When the standard key is absent or blank, the Symcon key is used. The body must still be valid JSON, and passkey sessions, Origin checks, CSRF tokens and request size limits remain enforced. This fixes “JSON body required” when applying a filter or starting a search on affected Symcon installations.
 
 Regression checks: `php .tests/webhook-request.php`.
+
+
+## 1.0.2 — Clean JSON search responses
+
+The dynamic percentage and other-battery tables now pass JSON strings to Symcon's `UpdateFormField` API, rather than raw arrays. This prevents conversion warnings during searches and threshold changes. The webhook scopes PHP diagnostic handling to each request: warnings become exceptions recorded in Debug, and incidental output is kept out of the HTTP body. Authentication, Origin and CSRF checks remain enforced.
+
+Regression tests: `php .tests/form-updates.php` and `php .tests/webhook-request.php`. They verify the form API's scalar-value requirement, both JSON header variants, warning/error JSON responses and successful responses containing no extra PHP output.
