@@ -7,6 +7,10 @@
 <section class="panel"><div class="controls"><div><label for="threshold">Charge below (%)</label><input id="threshold" type="number" min="0" max="100" step="0.1" value="30"></div><button id="apply">Apply filter</button><button id="scan">Search all battery variables</button><label class="checkbox"><input id="all" type="checkbox">Show all percentage readings</label><div><label for="text">Find a device or variable</label><input id="text" type="search" placeholder="Device, path or ID"></div></div><p class="muted">The filter uses charge strictly below the selected level. Search reads values recorded by Symcon. Device polling is managed by each device module.</p><div id="error" role="alert"></div><div id="updated" class="muted" aria-live="polite">Loading…</div></section>
 <section class="panel metrics"><div class="metric"><span>Percentage variables</span><b id="total">—</b></div><div class="metric"><span>Below threshold</span><b id="below">—</b></div><div class="metric"><span>Battery warnings</span><b id="warnings">—</b></div><div class="metric"><span>Old readings</span><b id="old">—</b></div></section>
 <section class="panel"><h2 id="tableTitle">Battery percentage readings</h2><div class="scroll"><table><thead><tr><th>Device / variable</th><th>Charge</th><th>Last recorded update</th><th>Reading status</th></tr></thead><tbody id="percentRows"></tbody></table></div><p class="muted" id="percentInfo"></p></section>
+<section class="panel" aria-labelledby="inactiveTitle"><h2 id="inactiveTitle">Possibly offline · no battery updates</h2>
+<div class="controls"><div><label for="inactiveDays">No update for more than (days)</label><input id="inactiveDays" type="number" min="1" max="3650" step="1" value="30"></div><button id="filterInactive" class="secondary">Show devices</button><label class="checkbox"><input id="includeNever" type="checkbox">Include devices never recorded</label></div>
+<p class="muted">Shows battery devices regardless of charge. The most recent battery-related update per device is used. An old reading suggests a device may be offline; it does not confirm connectivity.</p><p id="inactiveError" role="alert" class="alert" hidden></p>
+<div class="scroll"><table><thead><tr><th>Device</th><th>Last battery update</th><th>Days without update</th><th>Recorded battery charge / variables</th></tr></thead><tbody id="inactiveRows"></tbody></table></div><p id="inactiveInfo" class="muted" aria-live="polite"></p></section>
 <section class="panel"><h2>Battery warnings · including Homematic LOWBAT</h2><label class="checkbox"><input id="warningsOnly" type="checkbox" checked>Only active warnings</label><div class="scroll"><table><thead><tr><th>Device / variable</th><th>Warning</th><th>Last recorded update</th></tr></thead><tbody id="warningRows"></tbody></table></div><p class="muted">LOWBAT=true means a battery warning. It does not specify a charge percentage.</p></section>
 <section class="panel"><details><summary id="otherTitle">Voltage and unconfirmed variables</summary><p class="muted">Voltage is shown in volts. Status values and variables without a confirmed percent unit are excluded from the charge filter. You can confirm their meaning using variable overrides in the instance form.</p><div class="scroll"><table><thead><tr><th>Device / variable</th><th>Type</th><th>Value</th><th>Last update / reason</th></tr></thead><tbody id="otherRows"></tbody></table></div></details></section>
 </main><script nonce="{{NONCE}}">
@@ -19,11 +23,46 @@ function device(tr,r){const td=cell(tr,r.device+' · '+r.name);const small=docum
 function date(t){return t>0?new Date(t*1000).toLocaleString():'Never recorded'}
 function empty(body,text,cols){const tr=document.createElement('tr');const td=cell(tr,text);td.colSpan=cols;td.className='empty';body.appendChild(tr)}
 function matches(r){const q=$('text').value.trim().toLowerCase();return !q||(r.id+' '+r.device+' '+r.name+' '+r.path).toLowerCase().includes(q)}
+// Device grouping includes every battery row before applying the text search.
+function inactiveBatteryDevices(rows,days,includeNever,now){
+ if(!Number.isInteger(days)||days<1||days>3650)throw new Error('Enter a whole number of days between 1 and 3650.');
+ const devices=new Map();
+ for(const r of rows){
+  // Older cached inventories lack parent IDs: keep each row separate until the next search.
+  const key=Number.isInteger(r.deviceID)&&r.deviceID>=0?'device:'+r.deviceID:'variable:'+r.id;
+  let d=devices.get(key);if(!d){d={device:r.device,deviceID:r.deviceID??null,path:r.devicePath||r.path,updated:0,rows:[]};devices.set(key,d)}
+  d.rows.push(r);if(Number.isFinite(r.updated)&&r.updated>0)d.updated=Math.max(d.updated,r.updated);
+ }
+ return Array.from(devices.values()).filter(d=>d.updated>0?now-d.updated>days*86400:includeNever)
+  .map(d=>({...d,ageDays:d.updated>0?(now-d.updated)/86400:null}))
+  .sort((a,b)=>(a.updated===0?1:0)-(b.updated===0?1:0)||a.updated-b.updated||a.device.localeCompare(b.device));
+}
+function renderInactive(){
+ if(!report)return;
+ const body=$('inactiveRows'),error=$('inactiveError');body.replaceChildren();error.hidden=true;
+ try{
+  const raw=$('inactiveDays').value.trim(),days=raw===''?NaN:Number(raw);
+  const devices=inactiveBatteryDevices(report.rows,days,$('includeNever').checked,Date.now()/1000)
+   .filter(d=>d.rows.some(matches)||($('text').value.trim()!==''&&String(d.deviceID??'').includes($('text').value.trim())));
+  for(const d of devices){const tr=document.createElement('tr'),td=cell(tr,d.device);const small=document.createElement('small');small.textContent=(d.deviceID!==null?'Device #'+d.deviceID+' · ':'')+d.path;td.appendChild(small);
+   cell(tr,date(d.updated));cell(tr,d.ageDays===null?'Unknown':(Math.floor(d.ageDays*10)/10).toLocaleString(undefined,{maximumFractionDigits:1}));
+   const charge=d.rows.filter(r=>r.kind==='percent'&&r.percent!==null&&r.updated>0).map(r=>r.name+': '+r.percent+'%');
+   const values=cell(tr,charge.length?charge.join('; '):'No recorded percentage');const vars=document.createElement('small');vars.textContent=d.rows.map(r=>r.name+' (#'+r.id+')').join('; ');values.appendChild(vars);body.appendChild(tr);
+  }
+  if(!devices.length)empty(body,'No matching battery devices without updates for more than '+days+' days.',4);
+  $('inactiveInfo').textContent=devices.length+' device(s) shown · independent of the charge threshold. Never-recorded devices have an unknown offline duration.';
+  try{localStorage.setItem('BatteryMonitor:'+path+':inactiveDays',String(days))}catch{}
+ }catch(e){error.textContent=e.message;error.hidden=false;$('inactiveInfo').textContent='Enter a valid number of days to view devices.'}
+}
 function render(){if(!report)return;const rows=report.rows,p=rows.filter(r=>r.kind==='percent');$('total').textContent=p.length;$('below').textContent=report.below.length;$('warnings').textContent=rows.filter(r=>r.warning&&r.updated>0).length;$('old').textContent=rows.filter(r=>r.stale).length;$('updated').textContent='Last search: '+(report.lastScan?new Date(report.lastScan).toLocaleString():'No search yet')+' · Old reading: more than '+report.staleDays+' days since the recorded update.';
 $('tableTitle').textContent=$('all').checked?'All battery percentage readings':'Battery charge below '+report.threshold+'%';
 const visible=($('all').checked?p:report.below).filter(matches),body=$('percentRows');body.replaceChildren();for(const r of visible){const tr=document.createElement('tr');device(tr,r);const td=cell(tr,r.updated>0&&r.percent!==null?r.percent+'%':'Unknown');td.className='charge';cell(tr,date(r.updated));const status=cell(tr,r.updated===0?'Never recorded':r.percent===null?'Invalid value':r.stale?'Old reading':'Recorded');status.className=r.stale?'old':r.updated===0||r.percent===null?'warn':'';body.appendChild(tr)}if(!visible.length)empty(body,'No matching percentage readings.',4);$('percentInfo').textContent=visible.length+' shown. Old values remain visible with a warning. Never-recorded or invalid readings are excluded from the below-threshold count.';
 const w=rows.filter(r=>r.kind==='low'&&matches(r)&&(!$('warningsOnly').checked||r.warning)),wb=$('warningRows');wb.replaceChildren();for(const r of w){const tr=document.createElement('tr');device(tr,r);const td=cell(tr,r.updated===0?'Unknown':r.warning?'LOW BATTERY':'No warning');td.className=r.updated===0?'warn':r.warning?'alert':'';cell(tr,date(r.updated)+(r.stale?' · Old reading':''));wb.appendChild(tr)}if(!w.length)empty(wb,'No matching active battery warnings.',3);
-const others=rows.filter(r=>r.kind!=='percent'&&r.kind!=='low'&&matches(r)),ob=$('otherRows');ob.replaceChildren();for(const r of others){const tr=document.createElement('tr');device(tr,r);cell(tr,r.kind);cell(tr,String(r.value)+(r.kind==='voltage'?' V':''));const td=cell(tr,date(r.updated));const small=document.createElement('small');small.textContent=r.reason;td.appendChild(small);ob.appendChild(tr)}if(!others.length)empty(ob,'No matching other battery variables.',4);$('otherTitle').textContent='Voltage, status and unconfirmed variables ('+others.length+')';}
+const others=rows.filter(r=>r.kind!=='percent'&&r.kind!=='low'&&matches(r)),ob=$('otherRows');ob.replaceChildren();for(const r of others){const tr=document.createElement('tr');device(tr,r);cell(tr,r.kind);cell(tr,String(r.value)+(r.kind==='voltage'?' V':''));const td=cell(tr,date(r.updated));const small=document.createElement('small');small.textContent=r.reason;td.appendChild(small);ob.appendChild(tr)}if(!others.length)empty(ob,'No matching other battery variables.',4);$('otherTitle').textContent='Voltage, status and unconfirmed variables ('+others.length+')';renderInactive();}
 async function request(action){$('error').textContent='';$('scan').disabled=$('apply').disabled=true;try{const options={credentials:'same-origin',cache:'no-store'};let url=path+'?view=state';if(action){const n=Number($('threshold').value);if($('threshold').value.trim()===''||!Number.isFinite(n)||n<0||n>100)throw new Error('Enter a threshold between 0 and 100%.');url=path;Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json','X-Battery-CSRF':csrf},body:JSON.stringify({action,threshold:n})})}const response=await fetch(url,options);const data=await response.json();if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+').');report=data;$('threshold').value=report.threshold;render()}catch(e){$('error').textContent=e.message}finally{$('scan').disabled=$('apply').disabled=false}}
-$('scan').addEventListener('click',()=>request('scan'));$('apply').addEventListener('click',()=>request('threshold'));for(const id of ['all','warningsOnly'])$(id).addEventListener('change',render);$('text').addEventListener('input',render);request();
+$('scan').addEventListener('click',()=>request('scan'));$('apply').addEventListener('click',()=>request('threshold'));for(const id of ['all','warningsOnly'])$(id).addEventListener('change',render);$('text').addEventListener('input',render);
+$('filterInactive').addEventListener('click',renderInactive);$('inactiveDays').addEventListener('input',renderInactive);$('includeNever').addEventListener('change',renderInactive);
+try{const saved=localStorage.getItem('BatteryMonitor:'+path+':inactiveDays');if(saved!==null&&Number.isInteger(Number(saved))&&Number(saved)>=1&&Number(saved)<=3650)$('inactiveDays').value=saved}catch{}
+request();
 </script></body></html>
+

@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+const {Window}=await import(process.env.HAPPY_DOM_MODULE||'happy-dom');
+const window=new Window({url:'https://house.example/battery',settings:{enableJavaScriptEvaluation:true,suppressInsecureJavaScriptEnvironmentWarning:true}});
+const now=Math.floor(Date.now()/1000),day=86400;
+function row(id,deviceID,name,age,kind='percent',percent=100){return {id,deviceID,device:name,name:kind==='low'?'LOWBAT':'Battery',devicePath:'House / '+name,path:'House / '+name+' / battery',kind,percent,value:percent,updated:age===null?0:now-age*day,warning:false,stale:false}}
+const rows=[row(1,101,'Full battery old device',10),row(2,102,'Low battery fresh device',2,'percent',10),row(3,103,'Homematic stale',9,'low',null),row(4,104,'Never recorded',null),row(5,105,'Mixed device',20,'percent',80),row(6,105,'Mixed device',1,'low',null)];
+let report={threshold:30,lastScan:new Date().toISOString(),staleDays:30,rows,below:rows.filter(r=>r.kind==='percent'&&r.updated>0&&r.percent<30)};
+window.fetch=async(url,options={})=>{if(options.method==='POST'){const d=JSON.parse(options.body);report.threshold=d.threshold;report.below=rows.filter(r=>r.kind==='percent'&&r.updated>0&&r.percent<d.threshold)}return {ok:true,json:async()=>JSON.parse(JSON.stringify(report))}};
+const here=path.dirname(fileURLToPath(import.meta.url));
+const html=fs.readFileSync(path.join(here,'../BatteryMonitor/page.html'),'utf8').replaceAll('{{NONCE}}','test').replaceAll('{{PATH}}','/hook/battery_monitor_900002').replaceAll('{{CSRF}}','test-token').replaceAll('{{INSTANCE}}','900002').replaceAll('{{PORTAL}}','');
+const js=html.split('<script nonce="test">')[1].split('</script>')[0];window.document.write(html.replace(/<script[\s\S]*?<\/script>/,''));
+window.localStorage.setItem('BatteryMonitor:/hook/battery_monitor_900002:inactiveDays','7');window.eval(js);
+const wait=()=>new Promise(r=>setTimeout(r,5));const $=id=>window.document.getElementById(id);const input=(id,value)=>{$(id).value=value;$(id).dispatchEvent(new window.Event('input'))};
+await wait();assert.equal($('inactiveDays').value,'7','Saved X-day input restored');assert.equal($('inactiveRows').children.length,2,'Independent device list');assert($('inactiveRows').textContent.includes('100%'),'High-charge stale device visible');assert($('inactiveRows').textContent.includes('Homematic stale'),'Homematic flag included');assert(!$('inactiveRows').textContent.includes('Mixed device'),'Latest update across variables prevents false positive');
+assert.equal($('percentRows').children.length,1,'Existing charge filter preserved');$('threshold').value='5';$('apply').click();await wait();assert.equal($('inactiveRows').children.length,2,'Charge threshold does not restrict inactive devices');
+$('includeNever').checked=true;$('includeNever').dispatchEvent(new window.Event('change'));assert.equal($('inactiveRows').children.length,3,'Never-recorded opt-in');assert($('inactiveRows').textContent.includes('Unknown'),'Unknown duration labelled');
+input('text','Homematic');assert.equal($('inactiveRows').children.length,1,'Device search applies after grouping');input('text','');
+input('inactiveDays','14');assert.equal($('inactiveRows').children.length,1,'X-day change updates list live');assert($('inactiveRows').textContent.includes('Never recorded'),'Unknown remains separately identified');
+input('inactiveDays','');assert.equal($('inactiveError').hidden,false,'Blank input rejected');input('inactiveDays','7');assert.equal($('inactiveError').hidden,true,'Valid input clears error');assert.equal(window.localStorage.getItem('BatteryMonitor:/hook/battery_monitor_900002:inactiveDays'),'7','Input persisted per instance');
+$('filterInactive').click();assert.equal($('inactiveRows').children.length,3,'Show devices button');
+console.log('PASS: HTML X-day input, independent charge filtering, Homematic, grouping, text search, unknown duration and browser persistence');window.happyDOM.abort();

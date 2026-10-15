@@ -98,3 +98,19 @@ Regression checks: `php .tests/webhook-request.php`.
 The dynamic percentage and other-battery tables now pass JSON strings to Symcon's `UpdateFormField` API, rather than raw arrays. This prevents conversion warnings during searches and threshold changes. The webhook scopes PHP diagnostic handling to each request: warnings become exceptions recorded in Debug, and incidental output is kept out of the HTTP body. Authentication, Origin and CSRF checks remain enforced.
 
 Regression tests: `php .tests/form-updates.php` and `php .tests/webhook-request.php`. They verify the form API's scalar-value requirement, both JSON header variants, warning/error JSON responses and successful responses containing no extra PHP output.
+
+
+
+## 1.1.0 — Battery devices without updates
+
+The HTML page includes **Possibly offline · no battery updates** with an input **No update for more than (days)** (1–3650 whole days, initially 30). The list updates when you change the input or press **Show devices**. It works independently of the battery-charge threshold and the show-all-percentages option. The day value is remembered in this browser for the current instance. No device controls or polling settings are changed.
+
+The list covers all discovered battery-related entries, including percentage, LOWBAT, voltage and unconfirmed status variables. Entries are grouped by their owning object ID, and the most recent recorded battery-related update for each device determines its age. Thus an old warning variable cannot classify a device as inactive if another battery variable was updated recently. The table includes device name/ID/path, latest battery update, days since that update and recorded charge when available. Device/variable text search also applies to this table.
+
+The comparison is strictly more than X days. Devices with no recorded battery timestamp have unknown duration and are omitted unless **Include devices never recorded** is selected; they are labelled **Never recorded / Unknown**. Future timestamps do not count as inactive. Existing cached inventories from an older module version do not contain owning-device IDs; run **Search all battery variables** after updating to group them correctly. Mirrored owning objects remain separate entries.
+
+This is a stale-battery-reading indicator, not a confirmed connectivity test: some drivers may not update battery variables on every message. A recent update of an unrelated temperature/motion variable does not alter this battery-based age.
+
+Regression tests: `php .tests/form-updates.php`, `php .tests/webhook-request.php`, and `node .tests/inactive-devices.cjs`. The last check verifies the actual dashboard grouping/filter function, age boundaries, every battery type, independent charge thresholds, and never-recorded devices.
+
+Optional HTML interaction test: install `happy-dom` in a development environment and run `node .tests/inactive-page.mjs`. It checks the X-day input, browser persistence, charge-independent results, Homematic entries and device search.

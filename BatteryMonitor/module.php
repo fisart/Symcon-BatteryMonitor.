@@ -130,7 +130,7 @@ class BatteryMonitor extends IPSModule
                     if ($class['kind'] === 'other') continue;
                     $value=GetValue($id); $updated=(int)$v['VariableUpdated'];
                     $percent=$class['kind'] === 'percent' ? BatteryDiscovery::percent($value,$class['scale']) : null;
-                    $row=['id'=>$id,'name'=>$name,'device'=>IPS_GetName((int)$o['ParentID']),'path'=>IPS_GetLocation($id),'profile'=>$profileName,
+                    $row=['id'=>$id,'name'=>$name,'device'=>IPS_GetName((int)$o['ParentID']),'deviceID'=>(int)$o['ParentID'],'devicePath'=>IPS_GetLocation((int)$o['ParentID']),'path'=>IPS_GetLocation($id),'profile'=>$profileName,
                         'kind'=>$class['kind'],'scale'=>$class['scale'],'reason'=>$class['reason'],'value'=>$value,'percent'=>$percent,'updated'=>$updated,'updatedText'=>$updated>0 ? date('Y-m-d H:i:s',$updated) : 'Never recorded',
                         'stale'=>$updated > 0 && time()-$updated > $this->ReadPropertyInteger('StaleDays')*86400,'warning'=>$class['kind']==='low' && $value === true];
                     $rows[]=$row;
@@ -190,4 +190,5 @@ class BatteryMonitor extends IPSModule
         if ($this->ReadPropertyBoolean('DebugEnabled')) $this->SendDebug('BatteryMonitor',$message,0);
     }
 }
+
 
