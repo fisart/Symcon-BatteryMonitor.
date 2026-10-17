@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../libs/SystemPortalNavigation.php';
+
 
 /** HTTPS-only, passkey-protected battery monitoring dashboard. */
 trait BatteryMonitorWebhook
@@ -116,10 +118,7 @@ trait BatteryMonitorWebhook
 
     private function portalPath(): string
     {
-        $id=$this->ReadPropertyInteger('PortalInstanceID');
-        if ($id <= 0 || !IPS_InstanceExists($id)) return '';
-        $module=IPS_GetInstance($id)['ModuleInfo']['ModuleName'] ?? '';
-        return $module === 'AlarmPortal' ? '/hook/alarm_portal_'.$id : '';
+        return AFSystemPortalNavigationV1::path($this->webVault(), $this->ReadPropertyInteger('PortalInstanceID'));
     }
     public function ProcessHookData()
     {
