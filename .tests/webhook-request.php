@@ -57,4 +57,18 @@ check(count(array_filter($m->debug,static fn($s)=>str_contains($s,'Cannot auto-c
 check(ob_get_level()===$before,'Output buffers restored');
 $m->warn=false;$m->emit=true;ob_start();$response=$m->response($base+['HTTP_CONTENT_TYPE'=>'application/json'],'{"action":"scan"}');$output=ob_get_clean();
 check($output===''&&$response['status']===200&&isset(json_decode($response['body'],true,512,JSON_THROW_ON_ERROR)['threshold']),'Incidental output cannot corrupt success JSON');
+if (!function_exists('SEC_GetReplacementInfo')) {
+    function SEC_GetReplacementInfo(int $id): string
+    {
+        return json_encode(['engine'=>'native-only','ready'=>$id===900001,'backend'=>900003], JSON_THROW_ON_ERROR);
+    }
+}
+$_COOKIE = [];
+$_SERVER['HTTP_COOKIE'] = '__Host-SECB_900003=' . str_repeat('A', 43);
+$page = $m->response(array_replace($base, ['REQUEST_METHOD'=>'GET']), '');
+check($page['status']===200 && str_contains($page['body'], $m->csrf()), 'Native login opens the dashboard and renders a session-bound token');
+$native = array_replace($base, ['HTTP_X_BATTERY_CSRF'=>$m->csrf(),'CONTENT_TYPE'=>'application/json']);
+check($m->response($native,$body)['status']===200, 'Authenticated native session accepts same-origin controls');
+$_SERVER['HTTP_COOKIE'] = '__Host-SECB_900003=' . str_repeat('B', 43);
+check($m->response($native,$body)['status']===403, 'A rotated native session rejects the previous control token');
 echo "Webhook JSON compatibility: $count assertions passed.\n";

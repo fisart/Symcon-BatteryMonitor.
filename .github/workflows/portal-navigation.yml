@@ -8,7 +8,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Legacy and native portal sessions
-        run: php tests/portal-session.php
+        run: |
+          php tests/portal-session.php
+          php .tests/webhook-request.php
       - name: PHP syntax and portal resolver regression
         run: |
           php -l libs/SystemPortalNavigation.php
